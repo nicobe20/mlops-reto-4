@@ -1,21 +1,25 @@
+# .github/workflows/pipeline.yml
 name: MLOps Reto4 Pipeline
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # cada 2 horas
-  workflow_dispatch:
+    - cron: "0 */2 * * *"   # corre cada 2 horas
+  workflow_dispatch:         # permite ejecutar manualmente desde la pestaña Actions
 
 jobs:
   run:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # para commitear metrics.csv (opcional)
+      contents: write        # para poder commitear monitoring/metrics.csv (opcional)
+
     env:
+      # === Variables del proyecto (desde Secrets) ===
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
       GCP_DATASET: ${{ secrets.GCP_DATASET }}
-      GCP_LOCATION: ${{ secrets.GCP_LOCATION }}
-      # Endpoint por si cambia algún día:
+      GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+      GCP_LOCATION: ${{ secrets.GCP_LOCATION }}   # ej: us-east1
+
+      # === Endpoint de Donostia (por si cambia, fácil de sobreescribir) ===
       DONOSTIA_API_URL: https://www.donostia.eus/info/ciudadano/camaras_trafico.nsf/getParkings.xsp
 
     steps:
@@ -27,7 +31,7 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -37,14 +41,17 @@ jobs:
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$PWD/gcp-key.json" >> $GITHUB_ENV
 
+      # ====== EXTRACT: API -> CSV -> GCS -> BigQuery RAW ======
       - name: Extract -> GCS -> BigQuery RAW
         run: |
-          python data_extraction/extract_data.py
+          python collector/collector.py
 
+      # ====== TRAIN: lee RAW en BQ -> métricas y predicciones (BQ) ======
       - name: Train model -> BigQuery metrics + predictions
         run: |
-          python training/train_model.py
+          python training/training.py
 
+      # (Opcional) Commitea monitoring/metrics.csv al repo para historial rápido
       - name: Commit metrics.csv (optional)
         if: ${{ success() }}
         run: |
@@ -52,6 +59,12 @@ jobs:
             git config user.name "github-actions"
             git config user.email "actions@github.com"
             git add monitoring/metrics.csv
-            git commit -m "Update metrics [skip ci]" || echo "Nada para commitear"
+            git commit -m "Update metrics [skip ci]" || echo "No changes to commit"
             git push || true
           fi
+
+      # Limpia el keyfile por seguridad
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          shred -u gcp-key.json || rm -f gcp-key.json
