@@ -1,4 +1,5 @@
-#data collector. collector/collector.py
+# collector/collector.py
+# Data collector para parqueaderos (Donostia) -> GCS -> BigQuery (RAW)
 import os, io, json, time, csv, datetime
 import requests
 from google.cloud import storage, bigquery
@@ -10,85 +11,147 @@ API_URL = os.getenv(
     "https://www.donostia.eus/info/ciudadano/camaras_trafico.nsf/getParkings.xsp"
 )
 
-PROJECT = os.getenv("GCP_PROJECT_ID")
-DATASET = os.getenv("GCP_DATASET", "mlops_reto4")
-LOCATION = os.getenv("GCP_LOCATION", "us")
-BUCKET  = os.getenv("GCP_BUCKET")
+PROJECT  = os.getenv("GCP_PROJECT_ID")
+DATASET  = os.getenv("GCP_DATASET", "mlops_reto4")
+LOCATION = os.getenv("GCP_LOCATION", "us-east1")
+BUCKET   = os.getenv("GCP_BUCKET")
 RAW_TABLE = os.getenv("BQ_TABLE_RAW", "raw_parking")
 
 LOCAL_DIR = "data"
 os.makedirs(LOCAL_DIR, exist_ok=True)
 
-# ===== Helpers =====
-def safe_get(d, *candidates, default=None):
-    for c in candidates:
-        if c in d and d[c] not in (None, ""):
-            return d[c]
-    return default
 
-def fetch_json(url, retries=3, timeout=15):
+# ===== Helpers =====
+def fetch_json(url, retries=3, timeout=20):
     for i in range(retries):
         try:
             r = requests.get(url, timeout=timeout)
             r.raise_for_status()
             return r.json()
         except Exception as e:
+            print(f"[fetch_json] Intento {i+1}/{retries} falló: {e}")
             if i == retries - 1:
                 raise
             time.sleep(2 * (i+1))
 
+
+def to_int_flexible(x):
+    """Convierte strings con coma/punto a int. Devuelve None si no se puede."""
+    if x is None:
+        return None
+    try:
+        s = str(x).strip()
+        # casos: "129", "1.234", "1,234", "1,23" (tomamos floor)
+        s = s.replace(" ", "")
+        # Primero intenta reemplazar separador de miles y decimal común
+        # Estrategia simple: quitar miles y usar punto como decimal
+        s = s.replace(".", "")        # elimina posibles miles
+        s = s.replace(",", ".")       # coma -> punto
+        val = float(s)
+        return int(val)
+    except:
+        try:
+            return int(float(x))
+        except:
+            return None
+
+
 def normalize_records(obj, timestamp_iso):
     """
-    Intenta normalizar una lista de parqueaderos en filas:
-    parking_id, name, free, total, lat, lon, timestamp
+    Adaptado al JSON que compartiste:
+    {
+      "type": "FeatureCollection",
+      "name": "parkings",
+      "count": 16,
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": { "type": "Point", "coordinates": [x, y] },
+          "properties": {
+            "tipo": "LIB",
+            "plazasRotatorias": 210,
+            "plazasResidentes": 0,
+            "plazasResidentesLibres": 0,
+            "libres": "129",
+            "nombre": "Atotxa",
+            "noteId": "...",
+            "precios": [...]
+          }
+        }, ...
+      ]
+    }
+
+    Mapeo de salida:
+      parking_id -> properties.noteId
+      name       -> properties.nombre
+      free       -> properties.libres
+      total      -> plazasRotatorias + plazasResidentes
+      lon, lat   -> geometry.coordinates [x, y] (guardamos tal cual)
+      timestamp  -> timestamp_iso (UTC)
     """
-    records = []
-    if isinstance(obj, dict):
-        data = obj.get("parkings") or obj.get("data") or obj.get("items") or []
-    else:
-        data = obj
+    rows = []
 
-    if not isinstance(data, list):
-        # si el endpoint ya devuelve lista
-        data = obj if isinstance(obj, list) else []
+    if not isinstance(obj, dict) or "features" not in obj or not isinstance(obj["features"], list):
+        print("[normalize] Estructura no esperada. Claves raíz:",
+              list(obj.keys()) if isinstance(obj, dict) else type(obj))
+        return rows
 
-    for it in data:
-        # Campos típicos (heurística defensiva)
-        pid = safe_get(it, "id", "idParking", "id_parking", "codigo", "code")
-        name = safe_get(it, "name", "nombre", "parkingName")
-        free = safe_get(it, "free", "libre", "plazas_libres", "available", "slotsAvailable")
-        total = safe_get(it, "total", "capacidad", "plazas_totales", "slotsTotal")
-        lat = safe_get(it, "lat", "latitude", "y")
-        lon = safe_get(it, "lon", "lng", "long", "x")
+    feats = obj["features"]
+    for feat in feats:
+        if not isinstance(feat, dict):
+            continue
 
-        # Si no hay 'free', intenta calcular a partir de ocupación
-        if free is None and "occupied" in it and total:
+        props = feat.get("properties", {}) or {}
+        geom  = feat.get("geometry", {}) or {}
+
+        # Coordenadas: JSON trae [x, y]; guardamos lon=x, lat=y
+        lon_val, lat_val = None, None
+        coords = geom.get("coordinates")
+        if isinstance(coords, list) and len(coords) >= 2:
             try:
-                free = int(total) - int(it["occupied"])
+                lon_val = float(coords[0])
+                lat_val = float(coords[1])
             except:
-                free = None
+                lon_val, lat_val = None, None
 
-        # tipado básico
-        def as_int(x):
-            try: return int(float(x))
-            except: return None
+        parking_id = props.get("noteId")
+        name       = props.get("nombre")
+        libres     = to_int_flexible(props.get("libres"))
+        rot        = to_int_flexible(props.get("plazasRotatorias"))
+        res        = to_int_flexible(props.get("plazasResidentes"))
+
+        total = (rot or 0) + (res or 0)
 
         row = {
-            "parking_id": str(pid) if pid is not None else None,
-            "name": None if name is None else str(name),
-            "free": as_int(free),
-            "total": as_int(total),
-            "lat": None if lat is None else float(lat),
-            "lon": None if lon is None else float(lon),
+            "parking_id": str(parking_id) if parking_id is not None else None,
+            "name": str(name) if name is not None else None,
+            "free": libres,
+            "total": total if total is not None else None,
+            "lat": lat_val,
+            "lon": lon_val,
             "timestamp": timestamp_iso
         }
-        # filtra filas totalmente vacías
+
+        # descarta filas totalmente vacías
         if any(v is not None for v in row.values()):
-            records.append(row)
-    return records
+            rows.append(row)
+
+    print(f"[normalize] Filas generadas: {len(rows)}")
+    if rows:
+        print("[normalize] Ejemplo de fila:", rows[0])
+    else:
+        try:
+            first = obj["features"][0]
+            if isinstance(first, dict) and "properties" in first:
+                print("[normalize] Claves properties (ejemplo):", list(first["properties"].keys()))
+        except Exception as e:
+            print("[normalize] No se pudo mostrar ejemplo de properties:", e)
+
+    return rows
+
 
 def write_local_csv(rows, path):
-    header = ["timestamp","parking_id","name","free","total","lat","lon"]
+    header = ["timestamp", "parking_id", "name", "free", "total", "lat", "lon"]
     exists = os.path.exists(path)
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=header)
@@ -105,12 +168,14 @@ def write_local_csv(rows, path):
                 "lon": r["lon"]
             })
 
+
 def upload_to_gcs(local_path, bucket_name, dest_blob):
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(dest_blob)
     blob.upload_from_filename(local_path)
     print(f"Subido a gs://{bucket_name}/{dest_blob}")
+
 
 def ensure_bq_raw_table(project, dataset, table):
     client = bigquery.Client(project=project, location=LOCATION)
@@ -139,6 +204,7 @@ def ensure_bq_raw_table(project, dataset, table):
         client.create_table(tbl)
         print(f"Tabla creada: {table_id}")
 
+
 def load_csv_to_bq(gcs_uri, project, dataset, table):
     client = bigquery.Client(project=project, location=LOCATION)
     table_id = f"{project}.{dataset}.{table}"
@@ -161,6 +227,7 @@ def load_csv_to_bq(gcs_uri, project, dataset, table):
     job.result()
     print(f"Cargado en BigQuery: {gcs_uri} -> {table_id}")
 
+
 # ===== Main =====
 def main():
     assert PROJECT and BUCKET and DATASET, "Faltan variables de entorno GCP_PROJECT_ID / GCP_BUCKET / GCP_DATASET"
@@ -169,29 +236,34 @@ def main():
     ts_iso = now.replace(microsecond=0).isoformat() + "Z"
     stamp = now.strftime("%Y%m%d_%H%M%S")
 
-    # 1) Descarga
+    # Asegura dataset/tabla antes (para que existan aunque la primera corrida no produzca filas)
+    ensure_bq_raw_table(PROJECT, DATASET, RAW_TABLE)
+
+    # 1) Descarga JSON
     obj = fetch_json(API_URL)
+
+    # 2) Normaliza a filas
     rows = normalize_records(obj, ts_iso)
     if not rows:
         print("Advertencia: sin filas normalizadas. Se guarda JSON crudo para depurar.")
-        # guarda crudo por si acaso
         raw_path = os.path.join(LOCAL_DIR, f"raw_{stamp}.json")
         with open(raw_path, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False)
-        # continua sin cargar a BQ
+        # No sube a GCS ni carga a BQ si no hay filas
+        print(f"JSON crudo guardado en {raw_path}")
         return
 
-    # 2) CSV local
+    # 3) CSV local
     local_csv = os.path.join(LOCAL_DIR, f"data_{stamp}.csv")
     write_local_csv(rows, local_csv)
 
-    # 3) Subir a GCS
+    # 4) Subir a GCS
     dest = f"raw/data_{stamp}.csv"
     upload_to_gcs(local_csv, BUCKET, dest)
 
-    # 4) Asegurar tabla RAW y cargar CSV a BigQuery
-    ensure_bq_raw_table(PROJECT, DATASET, RAW_TABLE)
+    # 5) Cargar CSV a BigQuery (RAW)
     load_csv_to_bq(f"gs://{BUCKET}/{dest}", PROJECT, DATASET, RAW_TABLE)
+
 
 if __name__ == "__main__":
     main()

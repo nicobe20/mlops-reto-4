@@ -1,1 +1,8 @@
 .env
+
+# Virtual environments
+venv/
+.venv/
+
+# Local service account / keys
+gcp-key.json
