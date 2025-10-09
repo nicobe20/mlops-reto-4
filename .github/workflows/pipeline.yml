@@ -3,7 +3,7 @@ name: MLOps Reto4 Pipeline
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # corre cada 2 horas
+    - cron: "*/10 * * * *"  # corre cada 10 minutos
   workflow_dispatch:         # permite ejecutar manualmente desde la pestaña Actions
 
 jobs:
