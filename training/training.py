@@ -66,31 +66,28 @@ def ensure_metrics_and_pred_tables(client: bigquery.Client):
 
 
 def read_series_from_bq(client: bigquery.Client, history_days: int) -> pd.Series:
-    """
-    Lee de RAW y agrega total de plazas libres por timestamp.
-    Usa ventana rodante (últimos `history_days` días) para acelerar y estabilizar.
-    """
     sql = f"""
     SELECT
-      timestamp,
+      TIMESTAMP_TRUNC(timestamp, HOUR) AS ts_hour,
       SUM(CAST(free AS INT64)) AS total_free
     FROM `{PROJECT}.{DATASET}.{RAW_TABLE}`
     WHERE free IS NOT NULL
       AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {history_days} DAY)
-    GROUP BY timestamp
-    ORDER BY timestamp
+    GROUP BY ts_hour
+    ORDER BY ts_hour
     """
-    # to_dataframe directo (sin BQ Storage) para máxima compatibilidad
     df = client.query(sql).result().to_dataframe()
     if df.empty:
         raise RuntimeError("No hay datos en RAW para entrenar (consulta vacía).")
 
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df.set_index("timestamp").sort_index()
+    df["ts_hour"] = pd.to_datetime(df["ts_hour"], utc=True)
+    df = df.set_index("ts_hour").sort_index()
 
-    # Fuerza frecuencia horaria y deja huecos (los rellenamos después)
-    y = df["total_free"].asfreq("H")
+    # índice horario completo y relleno hacia adelante (last observation carried forward)
+    full_idx = pd.date_range(df.index.min(), df.index.max(), freq="H", tz="UTC")
+    y = df["total_free"].reindex(full_idx).fillna(method="ffill")
     return y
+
 
 
 # ===== Modelado =====
@@ -160,7 +157,7 @@ def train_and_eval(y: pd.Series, horizon: int):
     - Si hay >=60 puntos → SARIMAX diario
     """
     n_effective = y.dropna().shape[0]
-    if n_effective < 60:
+    if n_effective < 24:
         return baseline_hour_of_day(y, horizon)
     else:
         return sarimax_daily(y, horizon)
