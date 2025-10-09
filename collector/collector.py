@@ -1,4 +1,4 @@
-# data_extraction/extract_data.py
+#data collector. collector/collector.py
 import os, io, json, time, csv, datetime
 import requests
 from google.cloud import storage, bigquery
@@ -9,8 +9,8 @@ API_URL = os.getenv(
     "DONOSTIA_API_URL",
     "https://www.donostia.eus/info/ciudadano/camaras_trafico.nsf/getParkings.xsp"
 )
-#Placeholders para todo, en el github hay que cambiar esto.
-PROJECT = os.getenv("ID_DB")
+
+PROJECT = os.getenv("GCP_PROJECT_ID")
 DATASET = os.getenv("GCP_DATASET", "mlops_reto4")
 LOCATION = os.getenv("GCP_LOCATION", "us")
 BUCKET  = os.getenv("GCP_BUCKET")
