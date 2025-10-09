@@ -1,0 +1,57 @@
+name: MLOps Reto4 Pipeline
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # cada 2 horas
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # para commitear metrics.csv (opcional)
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+      GCP_DATASET: ${{ secrets.GCP_DATASET }}
+      GCP_LOCATION: ${{ secrets.GCP_LOCATION }}
+      # Endpoint por si cambia algún día:
+      DONOSTIA_API_URL: https://www.donostia.eus/info/ciudadano/camaras_trafico.nsf/getParkings.xsp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure GCP credentials
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$PWD/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Extract -> GCS -> BigQuery RAW
+        run: |
+          python data_extraction/extract_data.py
+
+      - name: Train model -> BigQuery metrics + predictions
+        run: |
+          python training/train_model.py
+
+      - name: Commit metrics.csv (optional)
+        if: ${{ success() }}
+        run: |
+          if [ -f monitoring/metrics.csv ]; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add monitoring/metrics.csv
+            git commit -m "Update metrics [skip ci]" || echo "Nada para commitear"
+            git push || true
+          fi

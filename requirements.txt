@@ -1,0 +1,9 @@
+requests
+pandas
+numpy
+google-cloud-storage
+google-cloud-bigquery
+pyarrow
+statsmodels
+scikit-learn
+python-dateutil
