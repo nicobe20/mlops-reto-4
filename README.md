@@ -199,7 +199,6 @@ ORDER BY timestamp;
 <img width="1175" height="849" alt="image" src="https://github.com/user-attachments/assets/170b4266-2d3e-4d62-aa13-6650c3be7a74" />
 
 
-
 > **¿Qué es `yhat`?** Es el símbolo `ŷ` (y gorrito): **valor predicho** de la variable objetivo para un timestamp futuro.
 
 ---
