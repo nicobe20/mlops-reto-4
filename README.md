@@ -2,11 +2,12 @@
 **Universidad EAFIT – 2025-2**  
 **Curso:** Redes Intensivas en Datos  
 **Reto 4:** Nivel 3 + Monitoreo + Visualización + Reentrenamiento  
+
 **Integrantes:**
 - Nicolas Betancur Ochoa
 - Valentina Morales Villada
 - Sebastian Salazar Osorio
-- 
+  
 **Proyecto:** Predicción de plazas libres en parqueaderos (Donostia)  
 **Fecha:** 2025-10-09
 
