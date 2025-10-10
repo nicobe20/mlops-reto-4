@@ -33,15 +33,22 @@ Implementar un pipeline MLOps reproducible que:
 - Crear **bucket** GCS (ej. `mlops-reto4-datos`):
 
 ![screenshot 1760043090](https://github.com/user-attachments/assets/dfa9a1cb-4995-4b50-b431-65aa8111921c)
+
 ![screenshot 1760043107](https://github.com/user-attachments/assets/21a4785b-6fa9-403f-b3fe-18297f313deb)
+
 ![screenshot 1760043217](https://github.com/user-attachments/assets/ebcfcadc-f00f-459d-b2e6-bf3e286ca229)
+
 ![screenshot 1760043261](https://github.com/user-attachments/assets/b1f5f045-113d-4abc-b809-bcead2958b72)
+
 ![screenshot 1760043334](https://github.com/user-attachments/assets/94966a5f-11fc-40f3-a641-5a9d6c491f48)
 
 
 - Crear **dataset** BigQuery (ej. `mlops_reto4`, región `us`).
+  
 ![screenshot 1760043507](https://github.com/user-attachments/assets/b6acc7ea-59ec-41c3-9c6e-7ef9716b175f)
+
 ![screenshot 1760043682](https://github.com/user-attachments/assets/8b6eaed6-3c33-4ae1-b02b-6baecbcd5f8a)
+
 ![screenshot 1760043804](https://github.com/user-attachments/assets/bdc7da0a-e4f6-4666-b7e2-d10fd9f17ff0)
 
 
@@ -52,9 +59,13 @@ Implementar un pipeline MLOps reproducible que:
   - Generar **key JSON** (se usará como secreto).
 
 ![screenshot 1760043857](https://github.com/user-attachments/assets/7f77a332-d2c8-4998-9539-1347a59908d2)
+
 ![screenshot 1760044062](https://github.com/user-attachments/assets/f4495d1a-538a-482e-bf5d-172086770a3f)
+
 ![screenshot 1760044283](https://github.com/user-attachments/assets/2e643ca1-1ad8-4992-b55f-d0387ce7e0c3)
+
 ![screenshot 1760044663](https://github.com/user-attachments/assets/13bcbdf8-466f-4a70-ad23-0f3588572d0e)
+
 ![screenshot 1760044679](https://github.com/user-attachments/assets/b470a498-947d-40e2-bb1e-fa0262a7c01b)
 
 
@@ -68,6 +79,7 @@ Implementar un pipeline MLOps reproducible que:
 - `GCP_SA_KEY` → **Contenido completo** del JSON de la Service Account  
 
 <img width="1892" height="843" alt="image" src="https://github.com/user-attachments/assets/616f2bb2-78ab-447a-a05e-2901bbee3d14" />
+
 <img width="986" height="516" alt="image" src="https://github.com/user-attachments/assets/44d4ce09-7ab6-4b92-a99f-32e5e262dbc2" />
 
 
@@ -136,7 +148,9 @@ ORDER BY ts_hour DESC
 LIMIT 24;
 ```
 ![screenshot 1760048140](https://github.com/user-attachments/assets/ddfe3564-d28c-48ff-bf03-8b50c07abe12)
+
 ![screenshot 1760049343](https://github.com/user-attachments/assets/e0ad108d-35a7-40a9-8d9b-b0dc089267cd)
+
 ![screenshot 1760048183](https://github.com/user-attachments/assets/130667f4-b39b-4868-9742-8ae022fa9800)
 
 
@@ -174,7 +188,9 @@ ORDER BY timestamp;
 ```
 
 ![screenshot 1760048288](https://github.com/user-attachments/assets/b9d416fa-1ae6-4c43-b90a-ba1c19b9be41)
+
 <img width="1165" height="763" alt="image" src="https://github.com/user-attachments/assets/5ef61678-bcd4-4c58-9911-97af36c99056" />
+
 <img width="1175" height="849" alt="image" src="https://github.com/user-attachments/assets/170b4266-2d3e-4d62-aa13-6650c3be7a74" />
 
 
@@ -200,7 +216,9 @@ Luego:
   run: python training/training.py
 ```
 <img width="1919" height="848" alt="screenshot 1760050400" src="https://github.com/user-attachments/assets/660ef1f8-b1c3-4b34-9d52-5cc17638a5d1" />
+
 <img width="1431" height="806" alt="screenshot 1760050420" src="https://github.com/user-attachments/assets/9b4ff1dc-0172-4488-82e1-769e09b80cd9" />
+
 ![screenshot 1760055256](https://github.com/user-attachments/assets/297b1cc2-bde9-425b-83c8-e183a01b2c86)
 
 
