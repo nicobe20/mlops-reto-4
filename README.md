@@ -225,21 +225,49 @@ Luego:
 
 ---
 
-## 10. Visualización en Grafana
-1. **Data Source**: BigQuery (sube el JSON de la Service Account).  
-2. **Panel de métricas (MAE):**
-```sql
-SELECT TIMESTAMP(run_at) AS run_at, mae, model_desc
-FROM `<PROYECTO>.<DATASET>.model_metrics`
-ORDER BY run_at;
-```
-3. **Panel de pronóstico (última corrida):**
-```sql
-SELECT TIMESTAMP(timestamp) AS ts, yhat
-FROM `<PROYECTO>.<DATASET>.predictions`
-WHERE created_at = (SELECT MAX(created_at) FROM `<PROYECTO>.<DATASET>.predictions`)
-ORDER BY ts;
-```
+## 10. Visualización en Grafana (Docker en VM)
+
+**Despliegue en Docker:**
+1. **Imagen de Grafana** (opción rápida con la oficial):
+   ~~~bash
+   docker pull grafana/grafana:latest
+   ~~~
+
+2. **Service Account para BigQuery** (mínimos permisos):
+   - **UserJobBigQuery** (*BigQuery Job User*: `roles/bigquery.jobUser`)
+   - **DataViewer** (*BigQuery Data Viewer*: `roles/bigquery.dataViewer`)
+
+   Descarga el **JSON** de la Service Account (ej. `sa-bq.json`).
+
+3. **Levantar Grafana** montando la credencial dentro del contenedor:
+   ~~~bash
+   docker run -d --name grafana \
+     -p 3000:3000 \
+     -v $(pwd)/sa-bq.json:/etc/grafana/sa-bq.json:ro \
+     grafana/grafana:latest
+   ~~~
+
+4. **Ingresar a Grafana**:
+   - URL pública de la VM: `http://<IP-DE-LA-VM>:3000`
+   - Credenciales por defecto: `admin` / `admin` (cámbiala al primer ingreso)
+
+**Configurar Data Source (BigQuery):**
+1. En Grafana: **Connections → Data sources → Add data source → BigQuery**.
+2. Autenticación: **Service account file** → ruta: `/etc/grafana/sa-bq.json`.
+3. Selecciona tu **Project** y **Location** (p. ej., `us`, que coincida con tu dataset).
+4. **Save & Test**.
+
+**Paneles:**
+- **Métricas del modelo (MAE)**:
+- **Pronóstico (última corrida)**:
+  
+
+> Al finalizar, **visualizamos la URL** de la VM (`http://<IP-DE-LA-VM>:3000`) con los paneles de **MAE** y **yhat** (pronóstico) funcionando.
+
+<img width="1345" height="103" alt="image" src="https://github.com/user-attachments/assets/7c3616c0-f312-4500-b6f2-28f87c1ac1a4" />
+<img width="828" height="428" alt="image" src="https://github.com/user-attachments/assets/7190cfbb-e392-4235-8559-d3e3dfee8483" />
+<img width="1916" height="967" alt="image" src="https://github.com/user-attachments/assets/81d3d116-b75b-4854-8f99-b7179f7d4639" />
+
 
 ---
 
