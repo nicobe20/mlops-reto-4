@@ -3,3 +3,5 @@ run_at,train_points,mae,model_desc
 2025-10-09T23:12:06.942750Z,24,1011.0,naive_last_value
 2025-10-09T23:23:23Z,1,0.0,baseline_hour_of_day + ewm_backfill,7,24
 2025-10-09T23:32:55Z,1,0.0,baseline_hour_of_day + ewm_backfill,7,24
+2025-10-09T23:45:56Z,2,0.0,baseline_hour_of_day + ewm_backfill,7,24
+2025-10-09T23:55:45Z,2,0.0,baseline_hour_of_day + ewm_backfill,7,24
