@@ -82,3 +82,4 @@ run_at,train_points,mae,model_desc
 2025-10-10T17:50:11Z,20,0.0,baseline_hour_of_day + ewm_backfill,7,24
 2025-10-10T17:56:19Z,20,0.0,baseline_hour_of_day + ewm_backfill,7,24
 2025-10-10T18:16:11Z,21,0.0,baseline_hour_of_day + ewm_backfill,7,24
+2025-10-10T18:41:50Z,21,0.0,baseline_hour_of_day + ewm_backfill,7,24
